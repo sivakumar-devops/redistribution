@@ -96,18 +96,21 @@ EOF
     chmod 600 ~/.my.cnf
 
     # Use `mysql` command with the .my.cnf file for authentication
-    if ! mysql <<SQL >> "$LOG_FILE" 2>&1; then
-        CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-        CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
-        GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
-        FLUSH PRIVILEGES;
-        SHOW DATABASES LIKE '$db_name';
-        SELECT user, host FROM mysql.user WHERE user = '$db_user';
-SQL
-    then
-        error "Failed to create MySQL database and user."
-        exit 1
-    fi
+    mysql <<EOF
+    -- Check if the database exists
+    CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+
+    -- Create the user if it does not exist
+    CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
+
+    -- Grant permissions
+    GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
+    FLUSH PRIVILEGES;
+
+    -- Verify the database and user creation
+    SHOW DATABASES LIKE '$db_name';
+    SELECT user, host FROM mysql.user WHERE user = '$db_user';
+EOF
 
     info "MySQL database and user created successfully."
 }
