@@ -151,14 +151,14 @@ install_wordpress() {
 
 # Function to configure WordPress
 setup_wp_config() {
-     local wp_config_file="/var/www/wordpress/wp-config.php"
+    local wp_config_file="/var/www/wordpress/wp-config.php"
     local db_name="wordpress"
     local db_user="wordpressuser"
     local db_password="password"
-	
 
     # Fetch secure keys from the WordPress secret key generator
-    SECURE_KEYS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
+    local secure_keys
+    secure_keys=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
 
     # Check if the curl command was successful
     if [ $? -ne 0 ]; then
@@ -166,8 +166,15 @@ setup_wp_config() {
         exit 1
     fi
 
-    echo "Backing up the existing WordPress configuration file..."
-    cp $WP_CONFIG_PATH ${WP_CONFIG_PATH}.bak
+    # Handle backup file
+    local backup_file="${wp_config_file}.bak"
+    if [ -f "$backup_file" ]; then
+        info "Backup file already exists. Removing it..."
+        rm -f "$backup_file"
+    fi
+
+    info "Backing up the existing WordPress configuration file..."
+    cp "$wp_config_file" "$backup_file"
 
     # Check if the backup command was successful
     if [ $? -ne 0 ]; then
@@ -175,20 +182,20 @@ setup_wp_config() {
         exit 1
     fi
 
-    echo "Updating the WordPress configuration file with secure keys and salts..."
+    info "Updating the WordPress configuration file with secure keys and salts..."
 
     # Remove old key and salt lines and add new ones
-    sed -i '/AUTH_KEY/d' $WP_CONFIG_PATH
-    sed -i '/SECURE_AUTH_KEY/d' $WP_CONFIG_PATH
-    sed -i '/LOGGED_IN_KEY/d' $WP_CONFIG_PATH
-    sed -i '/NONCE_KEY/d' $WP_CONFIG_PATH
-    sed -i '/AUTH_SALT/d' $WP_CONFIG_PATH
-    sed -i '/SECURE_AUTH_SALT/d' $WP_CONFIG_PATH
-    sed -i '/LOGGED_IN_SALT/d' $WP_CONFIG_PATH
-    sed -i '/NONCE_SALT/d' $WP_CONFIG_PATH
+    sed -i '/AUTH_KEY/d' "$wp_config_file"
+    sed -i '/SECURE_AUTH_KEY/d' "$wp_config_file"
+    sed -i '/LOGGED_IN_KEY/d' "$wp_config_file"
+    sed -i '/NONCE_KEY/d' "$wp_config_file"
+    sed -i '/AUTH_SALT/d' "$wp_config_file"
+    sed -i '/SECURE_AUTH_SALT/d' "$wp_config_file"
+    sed -i '/LOGGED_IN_SALT/d' "$wp_config_file"
+    sed -i '/NONCE_SALT/d' "$wp_config_file"
 
     # Append new keys and salts
-    echo "$SECRET_KEYS" >> $WP_CONFIG_PATH
+    echo "$secure_keys" >> "$wp_config_file"
 
     # Update database configuration
     sed -i "s/define( 'DB_NAME'.*/define( 'DB_NAME', '$db_name' );/" "$wp_config_file"
@@ -200,7 +207,7 @@ setup_wp_config() {
         echo "define( 'FS_METHOD', 'direct' );" >> "$wp_config_file"
     fi
 
-    echo "WordPress configuration file updated successfully."
+    info "WordPress configuration file updated successfully."
 }
 
 # Main function to execute the script
@@ -240,7 +247,7 @@ main() {
     install_wordpress
 
     info "Configuring WordPress..."
-    configure_wordpress
+    setup_wp_config
 
     info "Script completed successfully."
 
