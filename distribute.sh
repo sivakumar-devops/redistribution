@@ -96,21 +96,18 @@ EOF
     chmod 600 ~/.my.cnf
 
     # Use `mysql` command with the .my.cnf file for authentication
-    mysql <<EOF
-    -- Check if the database exists
-    CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-
-    -- Create the user if it does not exist
-    CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
-
-    -- Grant permissions
-    GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
-    FLUSH PRIVILEGES;
-
-    -- Verify the database and user creation
-    SHOW DATABASES LIKE '$db_name';
-    SELECT user, host FROM mysql.user WHERE user = '$db_user';
-EOF
+    if ! mysql <<SQL >> "$LOG_FILE" 2>&1; then
+        CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+        CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
+        GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
+        FLUSH PRIVILEGES;
+        SHOW DATABASES LIKE '$db_name';
+        SELECT user, host FROM mysql.user WHERE user = '$db_user';
+SQL
+    then
+        error "Failed to create MySQL database and user."
+        exit 1
+    fi
 
     info "MySQL database and user created successfully."
 }
@@ -149,55 +146,28 @@ install_wordpress() {
     info "WordPress installation completed successfully."
 }
 
-# Function to configure WordPress
-configure_wordpress() {
-    local WP_CONFIG_PATH="/var/www/wordpress/wp-config.php"
-    local DB_NAME="wordpress"
-    local DB_USER="wordpressuser"
-    local DB_PASSWORD="password"
+# New function to set up WordPress configuration
+setup_wp_config() {
+    # Define the path to the WordPress configuration file
+    WP_CONFIG_PATH="/var/www/wordpress/wp-config.php"
 
-    info "Generating secure WordPress keys and salts..."
+    # Fetch secure keys from the WordPress secret key generator
+    SECURE_KEYS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
 
-    # Fetch secure values from the WordPress API
-    local SECRET_KEYS
-    if ! SECRET_KEYS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/); then
-        error "Failed to fetch secure keys from the WordPress API."
-        exit 1
+    # Replace the placeholder keys in the WordPress configuration file
+    sed -i "/define('AUTH_KEY'/,/'NONCE_SALT'/c\\$SECURE_KEYS" $WP_CONFIG_PATH
+
+    # Update the database connection settings
+    sed -i "s/define( 'DB_NAME', '.*' );/define( 'DB_NAME', 'wordpress' );/" $WP_CONFIG_PATH
+    sed -i "s/define( 'DB_USER', '.*' );/define( 'DB_USER', 'wordpressuser' );/" $WP_CONFIG_PATH
+    sed -i "s/define( 'DB_PASSWORD', '.*' );/define( 'DB_PASSWORD', 'password' );/" $WP_CONFIG_PATH
+
+    # Add the FS_METHOD setting
+    if ! grep -q "define( 'FS_METHOD', 'direct' );" $WP_CONFIG_PATH; then
+        echo "define( 'FS_METHOD', 'direct' );" >> $WP_CONFIG_PATH
     fi
 
-    info "Backing up the existing WordPress configuration file..."
-    if ! cp "$WP_CONFIG_PATH" "${WP_CONFIG_PATH}.bak"; then
-        error "Failed to backup the WordPress configuration file."
-        exit 1
-    fi
-
-    info "Updating the WordPress configuration file with secure keys and salts..."
-
-    # Remove old key and salt lines and add new ones
-    sed -i '/AUTH_KEY/d' "$WP_CONFIG_PATH"
-    sed -i '/SECURE_AUTH_KEY/d' "$WP_CONFIG_PATH"
-    sed -i '/LOGGED_IN_KEY/d' "$WP_CONFIG_PATH"
-    sed -i '/NONCE_KEY/d' "$WP_CONFIG_PATH"
-    sed -i '/AUTH_SALT/d' "$WP_CONFIG_PATH"
-    sed -i '/SECURE_AUTH_SALT/d' "$WP_CONFIG_PATH"
-    sed -i '/LOGGED_IN_SALT/d' "$WP_CONFIG_PATH"
-    sed -i '/NONCE_SALT/d' "$WP_CONFIG_PATH"
-
-    # Append new keys and salts
-    echo "$SECRET_KEYS" >> "$WP_CONFIG_PATH"
-
-    info "Updating database connection settings..."
-
-    # Replace database connection details
-    sed -i "s/define('DB_NAME', '.*');/define('DB_NAME', '$DB_NAME');/" "$WP_CONFIG_PATH"
-    sed -i "s/define('DB_USER', '.*');/define('DB_USER', '$DB_USER');/" "$WP_CONFIG_PATH"
-    sed -i "s/define('DB_PASSWORD', '.*');/define('DB_PASSWORD', '$DB_PASSWORD');/" "$WP_CONFIG_PATH"
-
-    # Set the filesystem method to direct
-    info "Setting the filesystem method to direct..."
-    grep -q "define('FS_METHOD', 'direct');" "$WP_CONFIG_PATH" || echo "define('FS_METHOD', 'direct');" >> "$WP_CONFIG_PATH"
-
-    info "WordPress configuration file has been successfully updated."
+    info "WordPress configuration file has been updated."
 }
 
 # Main function to execute the script
@@ -236,8 +206,8 @@ main() {
     info "Starting WordPress installation..."
     install_wordpress
 
-    info "Configuring WordPress..."
-    configure_wordpress
+    info "Setting up WordPress configuration..."
+    setup_wp_config
 
     info "Script completed successfully."
 
