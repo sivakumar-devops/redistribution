@@ -157,8 +157,17 @@ setup_wp_config() {
     # Fetch secure keys from the WordPress secret key generator
     SECURE_KEYS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
 
+    # Check if the curl command was successful
+    if [ $? -ne 0 ]; then
+        error "Failed to fetch secure keys from the WordPress API. Exiting..."
+        exit 1
+    fi
+
     # Replace the placeholder keys in the WordPress configuration file
-    sed -i "/define('AUTH_KEY'/,/'NONCE_SALT'/c\\$SECURE_KEYS" $WP_CONFIG_PATH
+    sed -i "/define('AUTH_KEY'/,/'NONCE_SALT'/d" $WP_CONFIG_PATH
+    echo "$SECURE_KEYS" | while read -r line; do
+        echo "$line" >> $WP_CONFIG_PATH
+    done
 
     # Update the database connection settings
     sed -i "s/define( 'DB_NAME', '.*' );/define( 'DB_NAME', 'wordpress' );/" $WP_CONFIG_PATH
