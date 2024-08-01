@@ -2,6 +2,9 @@
 # Copyright (c) Syncfusion Inc. All rights reserved.
 #
 
+# Set environment variable
+export OPENSSL_CONF=/etc/ssl/
+
 # Color codes for messages
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -79,18 +82,22 @@ main() {
     local user=""
     local host_url=""
     local notify=false
+    local package_link=""
 
     # Parse command line arguments
-    while getopts "i:u:h:n:f" opt; do
+    while getopts "i:u:h:n:p:f" opt; do
         case $opt in
             i) install_new=$OPTARG ;;
             u) user=$OPTARG ;;
             h) host_url=$OPTARG ;;
             n) notify=$OPTARG ;;
+            p) package_link=$OPTARG ;;
             f) force_reinstall=true ;;
             \?) error "Invalid option: -$OPTARG" >&2; exit 1 ;;
         esac
     done
+
+    info "Package link: $package_link"
 
     info "Starting system update..."
     update_system
