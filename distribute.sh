@@ -151,8 +151,11 @@ install_wordpress() {
 
 # Function to configure WordPress
 setup_wp_config() {
-    # Define the path to the WordPress configuration file
-    WP_CONFIG_PATH="/var/www/wordpress/wp-config.php"
+     local wp_config_file="/var/www/wordpress/wp-config.php"
+    local db_name="wordpress"
+    local db_user="wordpressuser"
+    local db_password="password"
+	
 
     # Fetch secure keys from the WordPress secret key generator
     SECURE_KEYS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
@@ -187,17 +190,17 @@ setup_wp_config() {
     # Append new keys and salts
     echo "$SECRET_KEYS" >> $WP_CONFIG_PATH
 
-    # Update the database connection settings
-    sed -i "s/define( 'DB_NAME', '.*' );/define( 'DB_NAME', 'wordpress' );/" $WP_CONFIG_PATH
-    sed -i "s/define( 'DB_USER', '.*' );/define( 'DB_USER', 'wordpressuser' );/" $WP_CONFIG_PATH
-    sed -i "s/define( 'DB_PASSWORD', '.*' );/define( 'DB_PASSWORD', 'password' );/" $WP_CONFIG_PATH
+    # Update database configuration
+    sed -i "s/define( 'DB_NAME'.*/define( 'DB_NAME', '$db_name' );/" "$wp_config_file"
+    sed -i "s/define( 'DB_USER'.*/define( 'DB_USER', '$db_user' );/" "$wp_config_file"
+    sed -i "s/define( 'DB_PASSWORD'.*/define( 'DB_PASSWORD', '$db_password' );/" "$wp_config_file"
 
-    # Add the FS_METHOD setting
-    if ! grep -q "define( 'FS_METHOD', 'direct' );" $WP_CONFIG_PATH; then
-        echo "define( 'FS_METHOD', 'direct' );" >> $WP_CONFIG_PATH
+    # Add FS_METHOD configuration
+    if ! grep -q "define( 'FS_METHOD', 'direct' );" "$wp_config_file"; then
+        echo "define( 'FS_METHOD', 'direct' );" >> "$wp_config_file"
     fi
 
-    info "WordPress configuration file has been updated."
+    echo "WordPress configuration file updated successfully."
 }
 
 # Main function to execute the script
