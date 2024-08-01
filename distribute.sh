@@ -75,10 +75,18 @@ install_package() {
 # Main function to execute the script
 main() {
     local force_reinstall=false
+    local install_new=""
+    local user=""
+    local host_url=""
+    local notify=false
 
     # Parse command line arguments
-    while getopts "f" opt; then
+    while getopts "i:u:h:n:f" opt; then
         case $opt in
+            i) install_new=$OPTARG ;;
+            u) user=$OPTARG ;;
+            h) host_url=$OPTARG ;;
+            n) notify=$OPTARG ;;
             f) force_reinstall=true ;;
             \?) error "Invalid option: -$OPTARG" >&2; exit 1 ;;
         esac
@@ -91,6 +99,11 @@ main() {
     install_packages "$force_reinstall"
 
     info "Script completed successfully."
+
+    info "Install new: $install_new"
+    info "User: $user"
+    info "Host URL: $host_url"
+    info "Notify: $notify"
 }
 
 main "$@"
