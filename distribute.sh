@@ -75,6 +75,40 @@ install_package() {
     fi
 }
 
+# Function to install WordPress
+install_wordpress() {
+    info "Starting WordPress installation..."
+
+    cd /tmp || { error "Failed to change directory to /tmp"; exit 1; }
+
+    if ! curl -LO https://wordpress.org/latest.tar.gz >> "$LOG_FILE" 2>&1; then
+        error "Failed to download WordPress."
+        exit 1
+    fi
+
+    if ! tar xzvf latest.tar.gz >> "$LOG_FILE" 2>&1; then
+        error "Failed to extract WordPress."
+        exit 1
+    fi
+
+    if ! cp /tmp/wordpress/wp-config-sample.php /tmp/wordpress/wp-config.php >> "$LOG_FILE" 2>&1; then
+        error "Failed to copy wp-config.php."
+        exit 1
+    fi
+
+    if ! sudo cp -a /tmp/wordpress/. /var/www/wordpress >> "$LOG_FILE" 2>&1; then
+        error "Failed to copy WordPress files to /var/www/wordpress."
+        exit 1
+    fi
+
+    if ! sudo chown -R www-data:www-data /var/www/wordpress >> "$LOG_FILE" 2>&1; then
+        error "Failed to change ownership of WordPress files."
+        exit 1
+    fi
+
+    info "WordPress installation completed successfully."
+}
+
 # Main function to execute the script
 main() {
     local force_reinstall=false
@@ -104,6 +138,9 @@ main() {
 
     info "Starting package installation..."
     install_packages "$force_reinstall"
+
+    info "Starting WordPress installation..."
+    install_wordpress
 
     info "Script completed successfully."
 
