@@ -96,18 +96,21 @@ EOF
     chmod 600 ~/.my.cnf
 
     # Use `mysql` command with the .my.cnf file for authentication
-    if ! mysql <<SQL >> "$LOG_FILE" 2>&1; then
-        CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-        CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
-        GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
-        FLUSH PRIVILEGES;
-        SHOW DATABASES LIKE '$db_name';
-        SELECT user, host FROM mysql.user WHERE user = '$db_user';
-SQL
-    then
-        error "Failed to create MySQL database and user."
-        exit 1
-    fi
+    mysql <<EOF
+    -- Check if the database exists
+    CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+
+    -- Create the user if it does not exist
+    CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
+
+    -- Grant permissions
+    GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
+    FLUSH PRIVILEGES;
+
+    -- Verify the database and user creation
+    SHOW DATABASES LIKE '$db_name';
+    SELECT user, host FROM mysql.user WHERE user = '$db_user';
+EOF
 
     info "MySQL database and user created successfully."
 }
@@ -146,7 +149,7 @@ install_wordpress() {
     info "WordPress installation completed successfully."
 }
 
-# New function to set up WordPress configuration
+# Function to configure WordPress
 setup_wp_config() {
     # Define the path to the WordPress configuration file
     WP_CONFIG_PATH="/var/www/wordpress/wp-config.php"
@@ -215,17 +218,33 @@ main() {
             n) notify=$OPTARG ;;
             p) package_link=$OPTARG ;;
             f) force_reinstall=true ;;
-            *) error "Invalid option: -$OPTARG" ;;
+            \?) error "Invalid option: -$OPTARG" >&2; exit 1 ;;
         esac
     done
 
-    update_system
-    install_packages "$force_reinstall"
-    create_database
-    install_wordpress
-    setup_wp_config
+    info "Package link: $package_link"
 
-    info "Script execution completed."
+    info "Starting system update..."
+    update_system
+
+    info "Starting package installation..."
+    install_packages "$force_reinstall"
+
+    info "Creating MySQL database..."
+    create_database
+
+    info "Starting WordPress installation..."
+    install_wordpress
+
+    info "Configuring WordPress..."
+    configure_wordpress
+
+    info "Script completed successfully."
+
+    info "Install new: $install_new"
+    info "User: $user"
+    info "Host URL: $host_url"
+    info "Notify: $notify"
 }
 
 main "$@"
