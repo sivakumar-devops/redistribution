@@ -69,8 +69,8 @@ install_package() {
     else
         info "Installing $package_name..."
         if ! sudo apt install -y $package_name >> "$LOG_FILE" 2>&1; then
-            error "Failed to install $package_name."
-            exit 1
+                error "Failed to install $package_name."
+                exit 1
         fi
     fi
 }
@@ -109,9 +109,6 @@ EOF
         exit 1
     fi
 
-    # Optionally, you might want to clean up the .my.cnf file afterward
-    # rm ~/.my.cnf
-
     info "MySQL database and user created successfully."
 }
 
@@ -149,6 +146,57 @@ install_wordpress() {
     info "WordPress installation completed successfully."
 }
 
+# Function to configure WordPress
+configure_wordpress() {
+    local WP_CONFIG_PATH="/var/www/wordpress/wp-config.php"
+    local DB_NAME="wordpress"
+    local DB_USER="wordpressuser"
+    local DB_PASSWORD="password"
+
+    info "Generating secure WordPress keys and salts..."
+
+    # Fetch secure values from the WordPress API
+    local SECRET_KEYS
+    if ! SECRET_KEYS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/); then
+        error "Failed to fetch secure keys from the WordPress API."
+        exit 1
+    fi
+
+    info "Backing up the existing WordPress configuration file..."
+    if ! cp "$WP_CONFIG_PATH" "${WP_CONFIG_PATH}.bak"; then
+        error "Failed to backup the WordPress configuration file."
+        exit 1
+    fi
+
+    info "Updating the WordPress configuration file with secure keys and salts..."
+
+    # Remove old key and salt lines and add new ones
+    sed -i '/AUTH_KEY/d' "$WP_CONFIG_PATH"
+    sed -i '/SECURE_AUTH_KEY/d' "$WP_CONFIG_PATH"
+    sed -i '/LOGGED_IN_KEY/d' "$WP_CONFIG_PATH"
+    sed -i '/NONCE_KEY/d' "$WP_CONFIG_PATH"
+    sed -i '/AUTH_SALT/d' "$WP_CONFIG_PATH"
+    sed -i '/SECURE_AUTH_SALT/d' "$WP_CONFIG_PATH"
+    sed -i '/LOGGED_IN_SALT/d' "$WP_CONFIG_PATH"
+    sed -i '/NONCE_SALT/d' "$WP_CONFIG_PATH"
+
+    # Append new keys and salts
+    echo "$SECRET_KEYS" >> "$WP_CONFIG_PATH"
+
+    info "Updating database connection settings..."
+
+    # Replace database connection details
+    sed -i "s/define('DB_NAME', '.*');/define('DB_NAME', '$DB_NAME');/" "$WP_CONFIG_PATH"
+    sed -i "s/define('DB_USER', '.*');/define('DB_USER', '$DB_USER');/" "$WP_CONFIG_PATH"
+    sed -i "s/define('DB_PASSWORD', '.*');/define('DB_PASSWORD', '$DB_PASSWORD');/" "$WP_CONFIG_PATH"
+
+    # Set the filesystem method to direct
+    info "Setting the filesystem method to direct..."
+    grep -q "define('FS_METHOD', 'direct');" "$WP_CONFIG_PATH" || echo "define('FS_METHOD', 'direct');" >> "$WP_CONFIG_PATH"
+
+    info "WordPress configuration file has been successfully updated."
+}
+
 # Main function to execute the script
 main() {
     local force_reinstall=false
@@ -184,6 +232,9 @@ main() {
 
     info "Starting WordPress installation..."
     install_wordpress
+
+    info "Configuring WordPress..."
+    configure_wordpress
 
     info "Script completed successfully."
 
