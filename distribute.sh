@@ -81,7 +81,7 @@ main() {
     local notify=false
 
     # Parse command line arguments
-    while getopts "i:u:h:n:f" opt; then
+    while getopts "i:u:h:n:f" opt; do
         case $opt in
             i) install_new=$OPTARG ;;
             u) user=$OPTARG ;;
