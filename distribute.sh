@@ -75,6 +75,80 @@ install_package() {
     fi
 }
 
+# Function to create MySQL database and user
+create_database() {
+    local mysql_user="root"
+    local mysql_psw=""
+    local db_name="wordpress"
+    local db_user="wordpressuser"
+    local db_pass="password"  # Replace with actual user password
+
+    info "Creating MySQL database and user..."
+
+    # Create or update the .my.cnf file
+    cat > ~/.my.cnf <<EOF
+[client]
+user=$mysql_user
+password="$mysql_psw"
+EOF
+
+    # Set file permissions
+    chmod 600 ~/.my.cnf
+
+    # Use `mysql` command with the .my.cnf file for authentication
+    if ! mysql <<EOF >> "$LOG_FILE" 2>&1; then
+        CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+        CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
+        GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
+        FLUSH PRIVILEGES;
+        SHOW DATABASES LIKE '$db_name';
+        SELECT user, host FROM mysql.user WHERE user = '$db_user';
+EOF
+    then
+        error "Failed to create MySQL database and user."
+        exit 1
+    fi
+
+    # Optionally, you might want to clean up the .my.cnf file afterward
+    # rm ~/.my.cnf
+
+    info "MySQL database and user created successfully."
+}
+
+# Function to install WordPress
+install_wordpress() {
+    info "Starting WordPress installation..."
+
+    cd /tmp || { error "Failed to change directory to /tmp"; exit 1; }
+
+    if ! curl -LO https://wordpress.org/latest.tar.gz >> "$LOG_FILE" 2>&1; then
+        error "Failed to download WordPress."
+        exit 1
+    fi
+
+    if ! tar xzvf latest.tar.gz >> "$LOG_FILE" 2>&1; then
+        error "Failed to extract WordPress."
+        exit 1
+    fi
+
+    if ! cp /tmp/wordpress/wp-config-sample.php /tmp/wordpress/wp-config.php >> "$LOG_FILE" 2>&1; then
+        error "Failed to copy wp-config.php."
+        exit 1
+    fi
+
+    if ! sudo cp -a /tmp/wordpress/. /var/www/wordpress >> "$LOG_FILE" 2>&1; then
+        error "Failed to copy WordPress files to /var/www/wordpress."
+        exit 1
+    fi
+
+    if ! sudo chown -R www-data:www-data /var/www/wordpress >> "$LOG_FILE" 2>&1; then
+        error "Failed to change ownership of WordPress files."
+        exit 1
+    fi
+
+    info "WordPress installation completed successfully."
+}
+
 # Main function to execute the script
 main() {
     local force_reinstall=false
@@ -82,24 +156,34 @@ main() {
     local user=""
     local host_url=""
     local notify=false
+    local package_link=""
 
     # Parse command line arguments
-    while getopts "i:u:h:n:f" opt; do
+    while getopts "i:u:h:n:p:f" opt; do
         case $opt in
             i) install_new=$OPTARG ;;
             u) user=$OPTARG ;;
             h) host_url=$OPTARG ;;
             n) notify=$OPTARG ;;
+            p) package_link=$OPTARG ;;
             f) force_reinstall=true ;;
             \?) error "Invalid option: -$OPTARG" >&2; exit 1 ;;
         esac
     done
+
+    info "Package link: $package_link"
 
     info "Starting system update..."
     update_system
 
     info "Starting package installation..."
     install_packages "$force_reinstall"
+
+    info "Creating MySQL database..."
+    create_database
+
+    info "Starting WordPress installation..."
+    install_wordpress
 
     info "Script completed successfully."
 
