@@ -2,6 +2,9 @@
 # Copyright (c) Syncfusion Inc. All rights reserved.
 #
 
+# Set environment variable
+export OPENSSL_CONF=/etc/ssl/
+
 # Color codes for messages
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
