@@ -38,48 +38,37 @@ update_system() {
 install_packages() {
     local force_reinstall=$1
 
-    info "Checking if nginx is already installed..."
-    if dpkg -l | grep -q nginx; then
+    install_package "nginx" "$force_reinstall"
+    install_package "mysql-server" "$force_reinstall"
+    install_package "php8.1-fpm php-mysql" "$force_reinstall"
+    install_package "zip" "$force_reinstall"
+    install_package "libgdiplus" "$force_reinstall"
+    install_package "pv" "$force_reinstall"
+    install_package "python3" "$force_reinstall"
+}
+
+# Function to install a single package
+install_package() {
+    local package_name=$1
+    local force_reinstall=$2
+
+    info "Checking if $package_name is already installed..."
+    if dpkg -l | grep -q "$package_name"; then
         if [ "$force_reinstall" == "true" ]; then
-            info "Reinstalling nginx..."
-            if ! sudo apt install -y --reinstall nginx >> "$LOG_FILE" 2>&1; then
-                error "Failed to reinstall nginx."
+            info "Reinstalling $package_name..."
+            if ! sudo apt install -y --reinstall $package_name >> "$LOG_FILE" 2>&1; then
+                error "Failed to reinstall $package_name."
                 exit 1
             fi
         else
-            warn "nginx is already installed."
+            warn "$package_name is already installed."
         fi
     else
-        info "Installing nginx..."
-        if ! sudo apt install -y nginx >> "$LOG_FILE" 2>&1; then
-            error "Failed to install nginx."
+        info "Installing $package_name..."
+        if ! sudo apt install -y $package_name >> "$LOG_FILE" 2>&1; then
+            error "Failed to install $package_name."
             exit 1
         fi
-    fi
-
-    info "Checking if mysql-server is already installed..."
-    if dpkg -l | grep -q mysql-server; then
-        if [ "$force_reinstall" == "true" ]; then
-            info "Reinstalling mysql-server..."
-            if ! sudo apt install -y --reinstall mysql-server >> "$LOG_FILE" 2>&1; then
-                error "Failed to reinstall mysql-server."
-                exit 1
-            fi
-        else
-            warn "mysql-server is already installed."
-        fi
-    else
-        info "Installing mysql-server..."
-        if ! sudo apt install -y mysql-server >> "$LOG_FILE" 2>&1; then
-            error "Failed to install mysql-server."
-            exit 1
-        fi
-    fi
-
-    info "Installing php packages..."
-    if ! sudo apt install -y php8.1-fpm php-mysql >> "$LOG_FILE" 2>&1; then
-        error "Failed to install PHP packages."
-        exit 1
     fi
 }
 
