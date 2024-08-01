@@ -96,21 +96,18 @@ EOF
     chmod 600 ~/.my.cnf
 
     # Use `mysql` command with the .my.cnf file for authentication
-    mysql <<EOF
-    -- Check if the database exists
-    CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-
-    -- Create the user if it does not exist
-    CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
-
-    -- Grant permissions
-    GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
-    FLUSH PRIVILEGES;
-
-    -- Verify the database and user creation
-    SHOW DATABASES LIKE '$db_name';
-    SELECT user, host FROM mysql.user WHERE user = '$db_user';
-EOF
+    if ! mysql <<SQL >> "$LOG_FILE" 2>&1; then
+        CREATE DATABASE IF NOT EXISTS $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+        CREATE USER IF NOT EXISTS '$db_user'@'localhost' IDENTIFIED BY '$db_pass';
+        GRANT ALL ON $db_name.* TO '$db_user'@'localhost';
+        FLUSH PRIVILEGES;
+        SHOW DATABASES LIKE '$db_name';
+        SELECT user, host FROM mysql.user WHERE user = '$db_user';
+SQL
+    then
+        error "Failed to create MySQL database and user."
+        exit 1
+    fi
 
     info "MySQL database and user created successfully."
 }
@@ -163,11 +160,29 @@ setup_wp_config() {
         exit 1
     fi
 
-    # Replace the placeholder keys in the WordPress configuration file
-    sed -i "/define('AUTH_KEY'/,/'NONCE_SALT'/d" $WP_CONFIG_PATH
-    echo "$SECURE_KEYS" | while read -r line; do
-        echo "$line" >> $WP_CONFIG_PATH
-    done
+    echo "Backing up the existing WordPress configuration file..."
+    cp $WP_CONFIG_PATH ${WP_CONFIG_PATH}.bak
+
+    # Check if the backup command was successful
+    if [ $? -ne 0 ]; then
+        error "Failed to backup the WordPress configuration file. Exiting..."
+        exit 1
+    fi
+
+    echo "Updating the WordPress configuration file with secure keys and salts..."
+
+    # Remove old key and salt lines and add new ones
+    sed -i '/AUTH_KEY/d' $WP_CONFIG_PATH
+    sed -i '/SECURE_AUTH_KEY/d' $WP_CONFIG_PATH
+    sed -i '/LOGGED_IN_KEY/d' $WP_CONFIG_PATH
+    sed -i '/NONCE_KEY/d' $WP_CONFIG_PATH
+    sed -i '/AUTH_SALT/d' $WP_CONFIG_PATH
+    sed -i '/SECURE_AUTH_SALT/d' $WP_CONFIG_PATH
+    sed -i '/LOGGED_IN_SALT/d' $WP_CONFIG_PATH
+    sed -i '/NONCE_SALT/d' $WP_CONFIG_PATH
+
+    # Append new keys and salts
+    echo "$SECRET_KEYS" >> $WP_CONFIG_PATH
 
     # Update the database connection settings
     sed -i "s/define( 'DB_NAME', '.*' );/define( 'DB_NAME', 'wordpress' );/" $WP_CONFIG_PATH
@@ -200,33 +215,17 @@ main() {
             n) notify=$OPTARG ;;
             p) package_link=$OPTARG ;;
             f) force_reinstall=true ;;
-            \?) error "Invalid option: -$OPTARG" >&2; exit 1 ;;
+            *) error "Invalid option: -$OPTARG" ;;
         esac
     done
 
-    info "Package link: $package_link"
-
-    info "Starting system update..."
     update_system
-
-    info "Starting package installation..."
     install_packages "$force_reinstall"
-
-    info "Creating MySQL database..."
     create_database
-
-    info "Starting WordPress installation..."
     install_wordpress
-
-    info "Setting up WordPress configuration..."
     setup_wp_config
 
-    info "Script completed successfully."
-
-    info "Install new: $install_new"
-    info "User: $user"
-    info "Host URL: $host_url"
-    info "Notify: $notify"
+    info "Script execution completed."
 }
 
 main "$@"
