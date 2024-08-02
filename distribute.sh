@@ -5,6 +5,9 @@
 # Set environment variable
 export OPENSSL_CONF=/etc/ssl/
 
+# Save the current directory
+pushd . > /dev/null
+
 # Color codes for messages
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -119,6 +122,9 @@ EOF
 install_wordpress() {
     info "Starting WordPress installation..."
 
+    info "Creating MySQL database..."
+    create_database
+
     cd /tmp || { error "Failed to change directory to /tmp"; exit 1; }
 
     if ! curl -LO https://wordpress.org/latest.tar.gz >> "$LOG_FILE" 2>&1; then
@@ -145,6 +151,9 @@ install_wordpress() {
         error "Failed to change ownership of WordPress files."
         exit 1
     fi
+
+    info "Configuring WordPress..."
+    setup_wp_config
 
     info "WordPress installation completed successfully."
 }
@@ -294,6 +303,25 @@ main() {
     echo "Footer Logo: $footer_logo"
     echo "Site Name: $site_name"
     echo "Site Identifier: $site_identifier"
+
+    info "Starting system update..."
+    update_system
+
+    info "Starting package installation..."
+    install_packages "$force_reinstall"
+
+    info "Starting WordPress installation..."
+    install_wordpress
+
+    # Return to the original directory
+    popd > /dev/null
+
+    info "Bold Bi installation installation..."
+    install_boldbi
+
+    info "Script completed successfully."
+
+
 }
 
 # Call the main function with all script arguments
