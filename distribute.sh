@@ -219,6 +219,73 @@ setup_wp_config() {
     info "WordPress configuration file updated successfully."
 }
 
+# Function to install Bold BI
+install_boldbi() {
+    info "Downloading and unzipping Bold BI package..."
+
+    # Define the package file name
+    package_file="BoldBIEnterpriseEdition_Linux.zip"
+
+    # Remove the package file if it already exists
+    if [ -f "$package_file" ]; then
+            rm "$package_file"
+            if [ $? -ne 0 ]; then
+                    info "Failed to remove existing Bold BI package."
+                    exit 1
+            fi
+    fi
+
+    # Download the package
+    wget "$package_link" >> "$LOG_FILE" 2>&1
+
+    # Check if the download was successful
+    if [ $? -ne 0 ]; then
+        info "Failed to download Bold BI package."
+        exit 1
+    fi
+
+    # Unzip the downloaded package
+    unzip BoldBIEnterpriseEdition_Linux.zip >> "$LOG_FILE" 2>&1
+        Unzip the downloaded package, replacing existing files
+        unzip -o "$package_file"
+
+    # Check if the unzip was successful
+    if [ $? -ne 0 ]; then
+        info "Failed to unzip Bold BI package."
+        exit 1
+    fi
+
+    cd BoldBIEnterpriseEdition-Linux || { info "Failed to change directory."; exit 1; }
+
+    info "Executing installation command..."
+
+echo "    bash install-boldbi.sh -i "$install_type" \
+                           -u "$user" \
+                           -h "$host_url/dashboard" \
+                           -n "$nginx" \
+                           -license "$license_key" \
+                           -databasetype "$database_type" \
+                           -databasehost "$database_host" \
+                           -databaseport "$database_port" \
+                           -maintaindb "$maintain_db" \
+                           -databaseuser "$database_user" \
+                           -databasepwd "$database_pwd" \
+                           -databasename "$database_name" \
+                           -email "$email" \
+                           -emailpwd "$email_pwd" \
+                           -mainlogo "$main_logo" \
+                           -loginlogo "$login_logo" \
+                           -emaillogo "$email_logo" \
+                           -favicon "$favicon" \
+                           -footerlogo "$footer_logo" \
+                           -sitename "$site_name" \
+                           -siteidentifier "$site_identifier" "
+
+    info "Bold BI package installed successfully."
+}
+
+
+
 # Main function to execute the script
 main() {
     local force_reinstall=false
