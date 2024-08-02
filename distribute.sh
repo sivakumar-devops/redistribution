@@ -213,48 +213,88 @@ setup_wp_config() {
 # Main function to execute the script
 main() {
     local force_reinstall=false
-    local install_new=""
+    local install_type=""
     local user=""
     local host_url=""
-    local notify=false
+    local nginx=""
     local package_link=""
+    local license_key=""
+    local database_type=""
+    local database_host=""
+    local database_port=""
+    local maintain_db=""
+    local database_user=""
+    local database_pwd=""
+    local database_name=""
+    local email=""
+    local email_pwd=""
+    local main_logo=""
+    local login_logo=""
+    local email_logo=""
+    local favicon=""
+    local footer_logo=""
+    local site_name=""
+    local site_identifier=""
 
     # Parse command line arguments
-    while getopts "i:u:h:n:p:f" opt; do
-        case $opt in
-            i) install_new=$OPTARG ;;
-            u) user=$OPTARG ;;
-            h) host_url=$OPTARG ;;
-            n) notify=$OPTARG ;;
-            p) package_link=$OPTARG ;;
-            f) force_reinstall=true ;;
-            \?) error "Invalid option: -$OPTARG" >&2; exit 1 ;;
+    options=$(getopt -o '' -l install-type:,user:,host-url:,nginx:,package-link:,force-reinstall,license-key:,database-type:,database-host:,database-port:,maintain-db:,database-user:,database-password:,database-name:,email:,email-password:,main-logo:,login-logo:,email-logo:,favicon:,footer-logo:,site-name:,site-identifier: -- "$@")
+    eval set -- "$options"
+
+    while true; do
+        case "$1" in
+            --install-type) install_type=$2; shift 2 ;;
+            --user) user=$2; shift 2 ;;
+            --host-url) host_url=$2; shift 2 ;;
+            --nginx) nginx=$2; shift 2 ;;
+            --package-link) package_link=$2; shift 2 ;;
+            --force-reinstall) force_reinstall=true; shift ;;
+            --license-key) license_key=$2; shift 2 ;;
+            --database-type) database_type=$2; shift 2 ;;
+            --database-host) database_host=$2; shift 2 ;;
+            --database-port) database_port=$2; shift 2 ;;
+            --maintain-db) maintain_db=$2; shift 2 ;;
+            --database-user) database_user=$2; shift 2 ;;
+            --database-password) database_pwd=$2; shift 2 ;;
+            --database-name) database_name=$2; shift 2 ;;
+            --email) email=$2; shift 2 ;;
+            --email-password) email_pwd=$2; shift 2 ;;
+            --main-logo) main_logo=$2; shift 2 ;;
+            --login-logo) login_logo=$2; shift 2 ;;
+            --email-logo) email_logo=$2; shift 2 ;;
+            --favicon) favicon=$2; shift 2 ;;
+            --footer-logo) footer_logo=$2; shift 2 ;;
+            --site-name) site_name=$2; shift 2 ;;
+            --site-identifier) site_identifier=$2; shift 2 ;;
+            --) shift; break ;;
+            *) echo "Invalid option: $1" >&2; exit 1 ;;
         esac
     done
 
-    info "Package link: $package_link"
-
-    info "Starting system update..."
-    update_system
-
-    info "Starting package installation..."
-    install_packages "$force_reinstall"
-
-    info "Creating MySQL database..."
-    create_database
-
-    info "Starting WordPress installation..."
-    install_wordpress
-
-    info "Configuring WordPress..."
-    setup_wp_config
-
-    info "Script completed successfully."
-
-    info "Install new: $install_new"
-    info "User: $user"
-    info "Host URL: $host_url"
-    info "Notify: $notify"
+    # Output parsed arguments for verification
+    echo "Install Type: $install_type"
+    echo "User: $user"
+    echo "Host URL: $host_url"
+    echo "Nginx: $nginx"
+    echo "Package Link: $package_link"
+    echo "Force Reinstall: $force_reinstall"
+    echo "License Key: $license_key"
+    echo "Database Type: $database_type"
+    echo "Database Host: $database_host"
+    echo "Database Port: $database_port"
+    echo "Maintain DB: $maintain_db"
+    echo "Database User: $database_user"
+    echo "Database Password: $database_pwd"
+    echo "Database Name: $database_name"
+    echo "Email: $email"
+    echo "Email Password: $email_pwd"
+    echo "Main Logo: $main_logo"
+    echo "Login Logo: $login_logo"
+    echo "Email Logo: $email_logo"
+    echo "Favicon: $favicon"
+    echo "Footer Logo: $footer_logo"
+    echo "Site Name: $site_name"
+    echo "Site Identifier: $site_identifier"
 }
 
+# Call the main function with all script arguments
 main "$@"
