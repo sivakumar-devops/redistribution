@@ -226,6 +226,7 @@ main() {
     local user=""
     local host_url=""
     local nginx=""
+    local package_link=""
     local license_key=""
     local database_type=""
     local database_host=""
